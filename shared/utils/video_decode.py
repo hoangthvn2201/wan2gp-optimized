@@ -101,6 +101,27 @@ def resolve_media_binary(binary_name: str):
     return _resolve_media_binary(binary_name)
 
 
+@lru_cache(maxsize=8)
+def _video_sync_passthrough_args(ffmpeg_path: str):
+    """Return passthrough video-sync arguments supported by this FFmpeg build."""
+    try:
+        result = subprocess.run(
+            [ffmpeg_path, "-hide_banner", "-h", "full"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+        if "-fps_mode" in result.stdout:
+            return ("-fps_mode", "passthrough")
+    except (OSError, subprocess.SubprocessError):
+        pass
+    # FFmpeg versions before -fps_mode was introduced use the equivalent
+    # global -vsync setting. Numeric 0 is accepted by old and new releases.
+    return ("-vsync", "0")
+
+
 def _augment_virtual_metadata(video_path, metadata):
     spec = parse_virtual_media_path(video_path)
     if spec is None or metadata is None:
@@ -444,7 +465,7 @@ def _decode_contiguous_video_frames_ffmpeg(video_path, start_frame, max_frames, 
     if len(video_filter) > 0:
         cmd += ["-vf", video_filter]
     out_pix_fmt = "gbrpf32le" if hdr_linear else "rgb24"
-    cmd += ["-fps_mode", "passthrough", "-frames:v", str(requested_frames), "-f", "rawvideo", "-pix_fmt", out_pix_fmt, "pipe:1"]
+    cmd += [*_video_sync_passthrough_args(ffmpeg_path), "-frames:v", str(requested_frames), "-f", "rawvideo", "-pix_fmt", out_pix_fmt, "pipe:1"]
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=10**7)
     frame_bytes = metadata["display_width"] * metadata["display_height"] * 3 * (4 if hdr_linear else 1)
     frame_dtype = np.float32 if hdr_linear else np.uint8
@@ -527,7 +548,7 @@ def decode_video_frame_indices_ffmpeg(video_path, frame_indices, bridge="torch",
         cmd += ["-ss", f"{float(metadata.get('start_time') or 0.0) + (actual_start / fps_float):.12g}"]
     cmd += ["-i", decode_path, "-an", "-sn", "-vf", video_filter]
     out_pix_fmt = "gbrpf32le" if hdr_linear else "rgb24"
-    cmd += ["-fps_mode", "passthrough", "-frames:v", str(len(unique_indices)), "-f", "rawvideo", "-pix_fmt", out_pix_fmt, "pipe:1"]
+    cmd += [*_video_sync_passthrough_args(ffmpeg_path), "-frames:v", str(len(unique_indices)), "-f", "rawvideo", "-pix_fmt", out_pix_fmt, "pipe:1"]
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=10**7)
     frame_bytes = metadata["display_width"] * metadata["display_height"] * 3 * (4 if hdr_linear else 1)
     frame_dtype = np.float32 if hdr_linear else np.uint8
