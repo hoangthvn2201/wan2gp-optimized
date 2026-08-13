@@ -45,8 +45,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .server-pill span { width: 7px; height: 7px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 4px rgba(40, 119, 93, .1); }
 .server-pill.is-checking { color: var(--amber); background: #f5e9d4; }
 .server-pill.is-offline { color: var(--danger); background: #f6dfdc; }
-.icon-button { width: 38px; height: 38px; display: grid; place-items: center; border: 0; border-radius: 50%; background: var(--surface-soft); cursor: pointer; }
-.icon-button svg { width: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
 main { width: min(1280px, calc(100% - 40px)); margin: 0 auto; }
 .hero { min-height: 330px; padding: 78px 0 68px; display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(260px, .55fr); align-items: end; gap: 64px; }
@@ -152,14 +150,6 @@ h2 { font-size: clamp(28px, 3.3vw, 45px); line-height: 1.05; }
 .delivery-reel span:nth-child(2) { background: var(--coral); }
 .delivery-actions { display: grid; gap: 9px; }
 
-.settings-dialog { width: min(430px, calc(100% - 32px)); padding: 0; border: 0; border-radius: 20px; color: var(--ink); background: var(--surface); box-shadow: var(--shadow); }
-.settings-dialog::backdrop { background: rgba(10,17,29,.54); backdrop-filter: blur(5px); }
-.settings-dialog form { padding: 30px; }
-.dialog-heading { display: flex; align-items: start; justify-content: space-between; margin-bottom: 28px; }
-.dialog-heading h2 { font-size: 28px; }
-.dialog-heading .icon-button { font-size: 22px; }
-.field-help { margin: 9px 0 24px; color: var(--muted); font-size: 11px; line-height: 1.5; }
-.field-help code { color: var(--navy); }
 .toast-region { position: fixed; right: 22px; bottom: 22px; z-index: 50; display: grid; gap: 10px; pointer-events: none; }
 .toast { max-width: 360px; padding: 13px 16px; border-radius: 12px; color: white; background: var(--navy-deep); box-shadow: var(--shadow); font-size: 12px; line-height: 1.4; animation: toast-in .24s ease-out; }
 .toast.is-error { background: #7d302b; }

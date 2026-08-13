@@ -290,10 +290,12 @@ Low-VRAM GPUs (e.g. Colab T4): keep the default presets and set
 
 `wan2gp_server.ipynb` at the repository root is a general Colab-ready notebook:
 setup → start the server in the background → call all three endpoints →
-optional public URL via a Cloudflare quick tunnel (with
-`WAN2GP_SERVER_API_KEY` recommended when tunneling).
+optional public URL via a Cloudflare quick tunnel. The general notebook can
+optionally use `WAN2GP_SERVER_API_KEY` when tunneling.
 
 `ltx25_video_studio_colab.ipynb` is the high-VRAM Frameflow deployment. It
 uses profile 1, makes all defaults LTX-2.5 Distilled, starts the server,
 automatically downloads and warms LTX-2.5, and publishes the HTML studio with
-a Cloudflare quick tunnel.
+a Cloudflare quick tunnel. This deployment does not generate or require an API
+key; its public URL is intended to be used only for the lifetime of the Colab
+session.

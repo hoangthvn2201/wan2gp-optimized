@@ -17,7 +17,6 @@
   };
 
   const state = {
-    apiKey: localStorage.getItem("frameflow-api-key") || "",
     scenes: [],
     assembly: null,
     connected: false,
@@ -225,16 +224,11 @@
 
   async function apiFetch(path, options = {}) {
     const headers = new Headers(options.headers || {});
-    if (state.apiKey) headers.set("X-API-Key", state.apiKey);
     if (options.body && !(options.body instanceof FormData)) headers.set("Content-Type", "application/json");
     const response = await fetch(path, { ...options, headers });
     if (!response.ok) {
       let body = null;
       try { body = await response.json(); } catch (_) { /* response is not JSON */ }
-      if (response.status === 401) {
-        $("#settingsDialog").showModal();
-        throw new Error("The API key is missing or invalid.");
-      }
       throw new Error(extractError(body, `${response.status} ${response.statusText}`));
     }
     return response;
@@ -503,21 +497,6 @@
     downloadJobFile(state.assembly?.job, "frameflow-final-cut.mp4").catch(error => toast(error.message, true));
   });
 
-  $("#openSettings").addEventListener("click", () => {
-    $("#apiKey").value = state.apiKey;
-    $("#settingsDialog").showModal();
-  });
-
-  $("#closeSettings").addEventListener("click", () => $("#settingsDialog").close());
-
-  $("#settingsDialog form").addEventListener("submit", async event => {
-    event.preventDefault();
-    state.apiKey = $("#apiKey").value.trim();
-    localStorage.setItem("frameflow-api-key", state.apiKey);
-    $("#settingsDialog").close();
-    await checkConnection();
-  });
-
   async function checkConnection() {
     const status = $("#serverStatus");
     status.className = "server-pill is-checking";
@@ -530,20 +509,9 @@
     } catch (error) {
       state.connected = false;
       status.className = "server-pill is-offline";
-      status.innerHTML = `<span></span>${error.message.includes("key") ? "API key needed" : "Server unavailable"}`;
+      status.innerHTML = "<span></span>Server unavailable";
     }
   }
-
-  function readKeyFromHash() {
-    const params = new URLSearchParams(location.hash.replace(/^#/, ""));
-    const key = params.get("key");
-    if (!key) return;
-    state.apiKey = key;
-    localStorage.setItem("frameflow-api-key", key);
-    history.replaceState(null, "", `${location.pathname}${location.search}`);
-  }
-
-  readKeyFromHash();
   state.scenes.push(newScene("image"));
   renderAll();
   checkConnection();

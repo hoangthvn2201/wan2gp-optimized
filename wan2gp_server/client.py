@@ -199,13 +199,42 @@ class Wan2GPServerClient:
         *,
         timeout: float = 3600,
         poll: float = 3.0,
+        connection_grace: float = 60.0,
         on_progress: Optional[Callable[[Dict[str, Any]], None]] = None,
     ) -> Dict[str, Any]:
-        """Poll a job until it reaches a terminal state; raises on failure."""
+        """Poll a job until it reaches a terminal state; raises on failure.
+
+        Short connection interruptions are retried for ``connection_grace``
+        seconds. This is useful for notebook and tunnel clients, while still
+        surfacing a crashed server as a concise :class:`Wan2GPServerError`.
+        """
         deadline = time.time() + timeout
+        disconnected_at: Optional[float] = None
+        last_connection_error: Optional[Exception] = None
         last_line = ""
         while True:
-            job = self.job(job_id)
+            try:
+                job = self.job(job_id)
+                disconnected_at = None
+                last_connection_error = None
+            except (requests.ConnectionError, requests.Timeout) as exc:
+                now = time.time()
+                if disconnected_at is None:
+                    disconnected_at = now
+                    print(f"[reconnecting] Lost contact with server while waiting for job {job_id}...")
+                last_connection_error = exc
+                if now - disconnected_at >= connection_grace:
+                    raise Wan2GPServerError(
+                        f"Lost contact with server for {connection_grace:.0f}s while waiting for "
+                        f"job {job_id}. The server may have exited: {last_connection_error}"
+                    ) from exc
+                if now > deadline:
+                    raise Wan2GPServerError(
+                        f"Job {job_id} could not be checked before its {timeout}s timeout: "
+                        f"{last_connection_error}"
+                    ) from exc
+                time.sleep(min(poll, max(0.2, connection_grace)))
+                continue
             if on_progress:
                 on_progress(job)
             else:

@@ -92,13 +92,13 @@ The rounded geometry softens the dense controls without making the product playf
 
 ### Connection header
 
-The sticky header keeps the Frameflow identity, active model, server status, and API-key settings available. States are:
+The sticky header keeps the Frameflow identity, active model, and server status available. States are:
 
 - Amber: connecting
 - Green: authenticated and online
-- Red: offline or API key required
+- Red: server unavailable
 
-The public notebook URL may provide the key in the URL fragment. JavaScript stores it locally and immediately removes the fragment from the visible URL. The fragment is not sent in HTTP requests.
+The Frameflow notebook runs the API without authentication and publishes a clean tunnel URL, so no generated key, URL fragment, or browser setup is required.
 
 ### Scene card
 

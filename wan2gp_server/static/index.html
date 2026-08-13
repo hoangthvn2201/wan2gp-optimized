@@ -16,9 +16,6 @@
     </a>
     <div class="top-actions">
       <span id="serverStatus" class="server-pill is-checking"><span></span>Connecting</span>
-      <button id="openSettings" class="icon-button" type="button" aria-label="API settings" title="API settings">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.1A1.7 1.7 0 0 0 8.5 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3v-4h.1A1.7 1.7 0 0 0 4.6 8.5a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.1A1.7 1.7 0 0 0 15.5 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.13.38.34.72.64 1 .3.27.68.4 1.06.4h.1v4h-.1A1.7 1.7 0 0 0 19.4 15Z"/></svg>
-      </button>
     </div>
   </header>
 
@@ -82,19 +79,6 @@
       </div>
     </section>
   </main>
-
-  <dialog id="settingsDialog" class="settings-dialog">
-    <form method="dialog">
-      <div class="dialog-heading">
-        <div><p class="eyebrow">CONNECTION</p><h2>API settings</h2></div>
-        <button id="closeSettings" class="icon-button" type="button" aria-label="Close settings">×</button>
-      </div>
-      <label class="field-label" for="apiKey">API key</label>
-      <input id="apiKey" class="text-input" type="password" autocomplete="off" placeholder="Paste the key printed by the notebook">
-      <p class="field-help">Stored only in this browser. It is sent as the <code>X-API-Key</code> header.</p>
-      <button id="saveSettings" class="button button-primary button-full" value="default">Save connection</button>
-    </form>
-  </dialog>
 
   <div id="toastRegion" class="toast-region" aria-live="polite" aria-atomic="true"></div>
   <script src="/studio.js" defer></script>
