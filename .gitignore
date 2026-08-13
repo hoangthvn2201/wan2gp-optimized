@@ -22,6 +22,7 @@
 *.pkl
 *.html
 !plugins/motion_designer/assets/motion_designer_iframe_template.html
+!wan2gp_server/static/index.html
 *.pdf
 *.whl
 *.exe
