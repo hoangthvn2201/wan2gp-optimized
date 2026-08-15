@@ -109,8 +109,10 @@ Built-in presets:
 | `ltx25-distilled-i2v` | i2v | LTX-2.5 22B Distilled | video **with audio**, high-VRAM, 24 fps |
 
 `ltx25-distilled-image` uses the same LTX-2.5 weights in single-frame mode.
-Frameflow uses it when Start image + prompt is selected without an uploaded
-image, avoiding a second model download.
+Frameflow's Start Frame workspace can generate and preview that image from a
+dedicated image prompt before animation. If no image was prepared, Generate
+scene creates one automatically, without a second model download, and then
+runs image-to-video.
 
 ### `POST /v1/models/preload`
 
@@ -166,12 +168,16 @@ Add your own: drop a JSON file into `WAN2GP_SERVER_PRESETS_DIR` with
 Adds to the above:
 
 ```json
-{"duration_seconds": 5.0, "num_frames": null}
+{"duration_seconds": 8.0, "num_frames": null}
 ```
 
 - `duration_seconds` is converted to the model's frame grid (`quant*n+1`),
-  rounding **up**, capped at the model's `max_frames`.
+  rounding **up**, capped at the model's `max_frames`; accepted values are
+  greater than 0 and no more than 30 seconds.
 - `num_frames` overrides `duration_seconds` when set.
+- Frameflow offers 1–30 second LTX-2.5 scenes and defaults to 8 seconds. Clips
+  over 20 seconds use LTX-2.5 sliding windows (481 frames, 17-frame overlap),
+  with a 721-frame cap for 30 seconds at 24 fps.
 
 ### `POST /v1/generations/image-to-video`
 

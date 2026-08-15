@@ -18,21 +18,22 @@ The interface follows one vertical path:
 
 1. Confirm the GPU server connection.
 2. Direct a scene using one of four modes.
-3. Choose quality, aspect ratio, and duration.
-4. Generate while following global and scene-level progress.
-5. Review, regenerate, download, or delete the scene.
-6. Add a connected scene below it.
-7. Join an adjacent pair or concatenate every completed scene.
-8. Download the final MP4.
+3. In Start image mode, optionally upload a frame or create one from its own image prompt.
+4. Choose quality, aspect ratio, and duration (8 seconds by default, up to 30 seconds).
+5. Generate while following global and scene-level progress.
+6. Review, regenerate, download, or delete the scene.
+7. Add a connected scene below it.
+8. Join an adjacent pair or concatenate every completed scene.
+9. Download the final MP4.
 
-The default mode is **Start image + prompt**. When its image input is empty, the application first generates a start frame with the LTX-2.5 Distilled model and then animates it. This automatic two-stage behavior is stated directly in the upload affordance.
+The default mode is **Start image + prompt**. Its dedicated Start Frame workspace has an image upload, a separate start-image prompt, an LTX-2.5 Generate/Regenerate action, local progress, and a still preview. The still prompt controls composition and appearance; the director's prompt independently controls movement, camera, sound, and dialogue. When the user starts a scene without first creating or uploading a still, Frameflow automatically generates one from the start-image prompt, falling back to the director's prompt when the still prompt is blank.
 
 ### Generation modes
 
 | UI mode | Input | API behavior |
 |---|---|---|
 | Plain prompt | Text | LTX-2.5 text-to-video |
-| Start image + prompt | Optional image + text | LTX-2.5 image-to-video; automatically creates the start frame if empty |
+| Start image + prompt | Optional image, dedicated image prompt, and director's prompt | LTX-2.5 image-to-video; can preview/regenerate a generated start frame and automatically creates it if empty |
 | Video anchor + prompt | Video + text | Continues the uploaded source video |
 | Last video + prompt | Previous completed scene + text | Continues the exact preceding scene job |
 
@@ -120,12 +121,17 @@ The editor always exposes:
 - Current progress and server status text
 - Generate/regenerate, download, cancel, and delete actions as applicable
 
+Start Image mode additionally exposes a visually grouped **Start Frame** workspace before the director's prompt. The generated or uploaded image remains reusable across video regenerations until it is replaced. Its prompt and progress are deliberately separate from video direction so users can settle the composition before spending time on animation.
+
+The duration selector offers every whole-second value from 1 through 30 seconds, with 8 seconds selected for every new scene. LTX-2.5 clips longer than its native 481-frame window use a 17-frame sliding-window overlap; 30 seconds resolves to 721 frames at 24 fps.
+
 ### Progress
 
 Progress appears in two synchronized places:
 
 1. A dark global progress module above the storyboard for the currently active operation.
 2. A local rail inside the affected scene.
+3. A dedicated local rail inside the Start Frame workspace while an image is being created.
 
 Progress text includes the meaningful Wan2GP phase/status, such as loading the model, generating the automatic start frame, inference, decoding, or joining clips. Percent alone is not relied upon.
 

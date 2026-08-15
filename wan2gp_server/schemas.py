@@ -53,8 +53,8 @@ class TextToVideoRequest(_BaseGenerationRequest):
     width: int = Field(832, ge=64, le=4096)
     height: int = Field(480, ge=64, le=4096)
     duration_seconds: Optional[float] = Field(
-        5.0, gt=0, le=60,
-        description="Target clip duration; converted to the model's frame grid (rounded up)",
+        8.0, gt=0, le=30,
+        description="Target clip duration (maximum 30 seconds); converted to the model's frame grid (rounded up)",
     )
     num_frames: Optional[int] = Field(
         None, ge=1,

@@ -103,13 +103,13 @@ class Wan2GPServerClient:
 
     def text_to_video(self, prompt: str, *, model: Optional[str] = None,
                       width: int = 832, height: int = 480,
-                      duration_seconds: float = 5.0, **kwargs) -> Dict[str, Any]:
+                      duration_seconds: float = 8.0, **kwargs) -> Dict[str, Any]:
         body = {"prompt": prompt, "model": model, "width": width, "height": height,
                 "duration_seconds": duration_seconds, **kwargs}
         return self._request("POST", "/v1/generations/text-to-video", json=body)
 
     def image_to_video(self, prompt: str, *, image: Union[str, Path], model: Optional[str] = None,
-                       duration_seconds: float = 5.0, **kwargs) -> Dict[str, Any]:
+                       duration_seconds: float = 8.0, **kwargs) -> Dict[str, Any]:
         """`image` may be a local file path (uploaded as base64), an http(s)
         URL, a server-side path, or an `asset:<id>` reference."""
         body: Dict[str, Any] = {"prompt": prompt, "model": model,
@@ -132,7 +132,7 @@ class Wan2GPServerClient:
         video: Optional[Union[str, Path]] = None,
         source_job_id: Optional[str] = None,
         model: Optional[str] = None,
-        duration_seconds: float = 5.0,
+        duration_seconds: float = 8.0,
         continuation_mode: str = "source",
         **kwargs,
     ) -> Dict[str, Any]:

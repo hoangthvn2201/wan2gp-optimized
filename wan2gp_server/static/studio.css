@@ -92,6 +92,37 @@ h2 { font-size: clamp(28px, 3.3vw, 45px); line-height: 1.05; }
 .mode-button { min-height: 62px; padding: 9px 7px; border: 0; border-radius: 11px; color: #6c717a; background: #efede8; cursor: pointer; font-size: 10px; line-height: 1.25; font-weight: 700; }
 .mode-button svg { width: 18px; height: 18px; display: block; margin: 0 auto 6px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .mode-button.is-active { color: white; background: var(--navy); }
+.mode-button:disabled { cursor: not-allowed; opacity: .48; }
+.mode-button.is-active:disabled { opacity: .78; }
+.start-image-builder { margin-bottom: 18px; padding: 15px; border-radius: 15px; background: #f0ede7; }
+.start-image-head { display: flex; align-items: start; justify-content: space-between; gap: 14px; margin-bottom: 12px; }
+.start-image-head > div > span { display: block; margin-bottom: 4px; color: var(--coral); font-size: 9px; font-weight: 850; letter-spacing: .13em; }
+.start-image-head > div > strong { display: block; color: var(--navy); font-size: 12px; line-height: 1.35; }
+.start-image-state { flex: none; padding: 5px 8px; border-radius: 999px; color: #73777e; background: #dfdbd3; font-size: 9px; font-style: normal; font-weight: 800; }
+.start-image-state.is-running { color: var(--amber); background: #f5e2c4; }
+.start-image-state.is-ready { color: var(--green); background: #dcebe4; }
+.start-image-state.is-error { color: var(--danger); background: #f6dfdc; }
+.start-image-grid { display: grid; grid-template-columns: 142px minmax(0, 1fr); gap: 12px; }
+.start-image-source { min-height: 126px; position: relative; display: grid; place-items: center; overflow: hidden; padding: 10px; border-radius: 11px; color: var(--muted); background: #e2ded6; cursor: pointer; text-align: center; }
+.start-image-source:hover { background: #dad5cc; }
+.start-image-source input { position: absolute; opacity: 0; pointer-events: none; }
+.start-image-source svg { width: 21px; height: 21px; display: block; margin: 0 auto 7px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.start-image-source strong, .start-image-source small { display: block; }
+.start-image-source strong { color: var(--navy); font-size: 11px; }
+.start-image-source small { margin-top: 4px; font-size: 9px; }
+.start-image-source.has-image { padding: 0; background: var(--navy-deep); }
+.start-image-source img { width: 100%; height: 100%; position: absolute; inset: 0; object-fit: contain; }
+.start-image-source > b { position: absolute; z-index: 1; right: 7px; bottom: 7px; display: inline-flex; align-items: center; gap: 4px; padding: 5px 7px; border-radius: 7px; color: white; background: rgba(12,25,43,.78); backdrop-filter: blur(6px); font-size: 8px; }
+.start-image-source > b svg { width: 11px; height: 11px; margin: 0; }
+.start-image-compose { min-width: 0; display: grid; align-content: start; gap: 9px; }
+.image-prompt-wrap textarea { height: 83px; min-height: 83px; padding-bottom: 27px; background: var(--surface); font-size: 12px; }
+.start-image-actions { display: flex; align-items: center; gap: 11px; }
+.start-image-actions .button { flex: none; min-height: 36px; padding: 0 12px; font-size: 10px; }
+.start-image-actions small { color: var(--muted); font-size: 9px; line-height: 1.35; }
+.image-progress { margin-top: 12px; }
+.image-progress .progress-track { margin: 0 0 7px; background: #dad5cd; }
+.image-progress .progress-track i { background: linear-gradient(90deg, var(--navy), var(--coral)); }
+.image-progress p { display: flex; justify-content: space-between; gap: 12px; margin: 0; color: var(--muted); font-size: 9px; }
 .input-row { display: grid; grid-template-columns: minmax(160px, .66fr) minmax(250px, 1.34fr); gap: 12px; margin-bottom: 20px; }
 .media-input { min-height: 120px; display: grid; place-items: center; padding: 12px; border: 0; border-radius: var(--radius-sm); color: var(--muted); background: var(--surface-soft); cursor: pointer; text-align: center; }
 .media-input:hover { background: #e3ded5; }
@@ -177,6 +208,9 @@ h2 { font-size: clamp(28px, 3.3vw, 45px); line-height: 1.05; }
   .scene-preview { min-height: 240px; }
   .scene-editor { padding: 25px 18px; }
   .mode-grid { grid-template-columns: repeat(2, 1fr); }
+  .start-image-grid { grid-template-columns: 1fr; }
+  .start-image-source { min-height: 180px; }
+  .start-image-actions { align-items: stretch; flex-direction: column; }
   .input-row, .text-only-input { grid-template-columns: 1fr; }
   .settings-row { grid-template-columns: 1fr; }
   .scene-actions { flex-wrap: wrap; }

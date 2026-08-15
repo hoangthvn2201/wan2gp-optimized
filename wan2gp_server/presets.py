@@ -96,8 +96,14 @@ _BUILTIN: List[ModelPreset] = [
         resolution_multiple=64,
         max_pixels=2_200_000,
         min_frames=17,
-        max_frames=241,
-        settings={"num_inference_steps": 8},
+        # 30 seconds at 24 fps snaps to 721 (8*n+1). LTX-2.5 carries
+        # context across clips longer than the native 481-frame window.
+        max_frames=721,
+        settings={
+            "num_inference_steps": 8,
+            "sliding_window_size": 481,
+            "sliding_window_overlap": 17,
+        },
     ),
     ModelPreset(
         id="wan21-t2v-1.3b",
@@ -161,8 +167,13 @@ _BUILTIN: List[ModelPreset] = [
         resolution_multiple=64,
         max_pixels=2_200_000,
         min_frames=17,
-        max_frames=241,
-        settings={"num_inference_steps": 8, "image_prompt_type": "S"},
+        max_frames=721,
+        settings={
+            "num_inference_steps": 8,
+            "image_prompt_type": "S",
+            "sliding_window_size": 481,
+            "sliding_window_overlap": 17,
+        },
     ),
     ModelPreset(
         id="wan21-fun-inp-1.3b",

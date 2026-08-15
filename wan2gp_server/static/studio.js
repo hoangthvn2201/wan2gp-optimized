@@ -15,6 +15,7 @@
     "4:3": { draft: [768, 576], standard: [1024, 768], max: [1536, 1152] },
     "21:9": { draft: [896, 384], standard: [1344, 576], max: [1792, 768] },
   };
+  const DURATIONS = Array.from({ length: 30 }, (_, index) => index + 1);
 
   const state = {
     scenes: [],
@@ -31,9 +32,11 @@
 
   function newScene(mode = "image") {
     return {
-      id: uid(), mode, prompt: "", quality: "standard", ratio: "16:9", duration: 5,
+      id: uid(), mode, prompt: "", imagePrompt: "", quality: "standard", ratio: "16:9", duration: 8,
       file: null, inputUrl: null, asset: null, job: null, outputUrl: null,
       status: "idle", progress: 0, detail: "Ready for direction", error: null,
+      startImageJob: null, startImageFile: null, imageStatus: "idle",
+      imageProgress: 0, imageDetail: "Describe or upload a start frame", imageError: null,
     };
   }
 
@@ -58,10 +61,16 @@
   }
 
   function sceneStatus(scene) {
+    if (["queued", "running"].includes(scene.imageStatus)) return ["Creating frame", "is-running"];
     if (scene.status === "succeeded") return ["Ready", "is-ready"];
     if (["uploading", "queued", "running"].includes(scene.status)) return ["Generating", "is-running"];
     if (["failed", "cancelled"].includes(scene.status)) return [scene.status === "failed" ? "Needs attention" : "Cancelled", "is-error"];
     return ["Draft", ""];
+  }
+
+  function isSceneBusy(scene) {
+    return ["uploading", "queued", "running"].includes(scene.status) ||
+      ["queued", "running"].includes(scene.imageStatus);
   }
 
   function previewMarkup(scene) {
@@ -79,21 +88,58 @@
       const available = previous?.status === "succeeded";
       return `<div class="last-source">${icon("last")}<div><strong>${available ? `Scene ${String(index).padStart(2, "0")} linked` : "Previous scene required"}</strong><small>${available ? "Uses the exact preceding clip as continuation context" : "Generate the scene above before continuing it"}</small></div></div>`;
     }
+    if (scene.mode === "image") return "";
     const wantsVideo = scene.mode === "video";
-    const typeLabel = wantsVideo ? "video anchor" : "start image";
-    const emptyHint = wantsVideo ? "MP4, MOV or WebM" : "Optional — generated if empty";
+    const typeLabel = "video anchor";
+    const emptyHint = "MP4, MOV or WebM";
     return `<label class="media-input">
       <input type="file" data-field="file" accept="${wantsVideo ? "video/mp4,video/quicktime,video/webm,video/x-matroska,video/x-msvideo" : "image/*"}">
       <span>${icon("upload")}<strong>${scene.file ? esc(scene.file.name) : `Add ${typeLabel}`}</strong><small>${scene.file ? "Choose another file" : emptyHint}</small></span>
     </label>`;
   }
 
+  function startImageMarkup(scene) {
+    const busy = ["queued", "running"].includes(scene.imageStatus);
+    const hasImage = Boolean(scene.inputUrl);
+    const generated = Boolean(scene.startImageFile) && !scene.file;
+    const failed = scene.imageStatus === "failed";
+    const stateLabel = busy ? "Generating" : failed ? "Generation failed" : generated ? "AI frame ready" : scene.file ? "Upload ready" : "Optional";
+    const progressVisible = busy || scene.imageStatus === "failed";
+    return `<section class="start-image-builder" aria-label="Start image creator">
+      <div class="start-image-head">
+        <div><span>START FRAME</span><strong>Create with LTX-2.5 or upload your own</strong></div>
+        <em class="start-image-state ${busy ? "is-running" : failed ? "is-error" : hasImage ? "is-ready" : ""}">${esc(stateLabel)}</em>
+      </div>
+      <div class="start-image-grid">
+        <label class="start-image-source ${hasImage ? "has-image" : ""}">
+          <input type="file" data-field="file" accept="image/*" ${busy ? "disabled" : ""}>
+          ${hasImage ? `<img src="${esc(scene.inputUrl)}" alt="Selected start frame">` : `<span>${icon("upload")}<strong>Upload start image</strong><small>PNG, JPG or WebP</small></span>`}
+          ${hasImage ? `<b>${icon("upload")}Replace image</b>` : ""}
+        </label>
+        <div class="start-image-compose">
+          <div class="prompt-wrap image-prompt-wrap">
+            <textarea data-field="imagePrompt" maxlength="3000" placeholder="Describe the opening frame: subject, composition, lighting, lens, and style…" ${busy ? "disabled" : ""}>${esc(scene.imagePrompt)}</textarea>
+            <span>START IMAGE PROMPT</span>
+          </div>
+          <div class="start-image-actions">
+            <button class="button button-soft" data-action="generate-image" type="button" ${busy ? "disabled" : ""}>${icon("generate")}${generated ? "Regenerate start image" : "Generate start image"}</button>
+            <small>Controls the still image only. If blank, Generate scene uses the director's prompt.</small>
+          </div>
+        </div>
+      </div>
+      <div class="image-progress ${progressVisible ? "" : "is-hidden"}">
+        <div class="progress-track"><i style="width:${scene.imageProgress}%"></i></div>
+        <p><span>${esc(scene.imageError || scene.imageDetail)}</span><strong>${scene.imageProgress}%</strong></p>
+      </div>
+    </section>`;
+  }
+
   function renderScene(scene, index) {
     const [statusLabel, statusClass] = sceneStatus(scene);
-    const busy = ["uploading", "queued", "running"].includes(scene.status);
-    const canDelete = state.scenes.length > 1 || !busy;
+    const busy = isSceneBusy(scene);
+    const canDelete = !busy;
     const inputMarkup = mediaInputMarkup(scene, index);
-    const progressVisible = busy || scene.status === "failed";
+    const progressVisible = ["uploading", "queued", "running", "failed"].includes(scene.status);
     return `<article class="scene-card" data-scene-card="${scene.id}">
       <div class="scene-preview">
         ${previewMarkup(scene)}
@@ -106,9 +152,10 @@
           <button class="delete-button" data-action="delete" type="button" ${canDelete ? "" : "disabled"} aria-label="Delete scene">Delete</button>
         </div>
         <div class="mode-grid" role="group" aria-label="Generation mode">
-          ${Object.entries(MODES).map(([value, mode]) => `<button class="mode-button ${scene.mode === value ? "is-active" : ""}" data-action="mode" data-value="${value}" type="button" ${value === "last" && index === 0 ? "disabled" : ""}>${icon(mode.icon)}${mode.short}</button>`).join("")}
+          ${Object.entries(MODES).map(([value, mode]) => `<button class="mode-button ${scene.mode === value ? "is-active" : ""}" data-action="mode" data-value="${value}" type="button" ${busy || value === "last" && index === 0 ? "disabled" : ""}>${icon(mode.icon)}${mode.short}</button>`).join("")}
         </div>
-        <div class="input-row ${scene.mode === "text" ? "text-only-input" : ""}">
+        ${scene.mode === "image" ? startImageMarkup(scene) : ""}
+        <div class="input-row ${scene.mode === "text" || scene.mode === "image" ? "text-only-input" : ""}">
           ${inputMarkup}
           <div class="prompt-wrap">
             <textarea data-field="prompt" maxlength="3000" placeholder="Describe the action, camera movement, atmosphere, sound, and dialogue…">${esc(scene.prompt)}</textarea>
@@ -125,7 +172,7 @@
             ${Object.keys(RESOLUTIONS).map(ratio => `<option value="${ratio}" ${scene.ratio === ratio ? "selected" : ""}>${ratio}${ratio === "16:9" ? " · Landscape" : ratio === "9:16" ? " · Portrait" : ""}</option>`).join("")}
           </select></div>
           <div class="select-field"><label>Length</label><select data-field="duration">
-            ${[3, 5, 8, 10].map(value => `<option value="${value}" ${scene.duration === value ? "selected" : ""}>${value} seconds</option>`).join("")}
+            ${DURATIONS.map(value => `<option value="${value}" ${scene.duration === value ? "selected" : ""}>${value} second${value === 1 ? "" : "s"}</option>`).join("")}
           </select></div>
         </div>
         <div class="scene-progress ${progressVisible ? "" : "is-hidden"}">
@@ -181,20 +228,42 @@
     updateGlobalProgress();
   }
 
+  function syncImageProgress(scene) {
+    const card = document.querySelector(`[data-scene-card="${CSS.escape(scene.id)}"]`);
+    if (!card) return;
+    const progress = $(".image-progress", card);
+    progress?.classList.remove("is-hidden");
+    const bar = $(".image-progress .progress-track i", card);
+    const detail = $(".image-progress p span", card);
+    const percent = $(".image-progress p strong", card);
+    if (bar) bar.style.width = `${scene.imageProgress}%`;
+    if (detail) detail.textContent = scene.imageError || scene.imageDetail;
+    if (percent) percent.textContent = `${scene.imageProgress}%`;
+    updateGlobalProgress();
+  }
+
   function updateGlobalProgress() {
     const active = state.scenes.find(scene => ["uploading", "queued", "running"].includes(scene.status));
+    const activeImage = state.scenes.find(scene => ["queued", "running"].includes(scene.imageStatus));
     const panel = $("#globalProgress");
-    if (!active && !state.assembly?.active) {
+    if (!active && !activeImage && !state.assembly?.active) {
       panel.classList.add("is-hidden");
       return;
     }
-    const operation = active || state.assembly;
-    const index = active ? state.scenes.indexOf(active) + 1 : null;
+    const operation = active || activeImage || state.assembly;
+    const operationScene = active || activeImage;
+    const index = operationScene ? state.scenes.indexOf(operationScene) + 1 : null;
     panel.classList.remove("is-hidden");
-    $("#globalProgressLabel").textContent = active ? `Generating scene ${String(index).padStart(2, "0")}` : "Assembling final cut";
-    $("#globalProgressPercent").textContent = `${operation.progress || 0}%`;
-    $("#globalProgressBar").style.width = `${operation.progress || 0}%`;
-    $("#globalProgressDetail").textContent = operation.detail || "Preparing…";
+    $("#globalProgressLabel").textContent = active
+      ? `Generating scene ${String(index).padStart(2, "0")}`
+      : activeImage
+        ? `Creating start image for scene ${String(index).padStart(2, "0")}`
+        : "Assembling final cut";
+    const progress = activeImage && !active ? operation.imageProgress : operation.progress;
+    const detail = activeImage && !active ? operation.imageDetail : operation.detail;
+    $("#globalProgressPercent").textContent = `${progress || 0}%`;
+    $("#globalProgressBar").style.width = `${progress || 0}%`;
+    $("#globalProgressDetail").textContent = detail || "Preparing…";
   }
 
   function updateDelivery() {
@@ -263,6 +332,85 @@
     }
   }
 
+  async function pollStartImageJob(jobId, scene, { sceneOffset = null, sceneSpan = 0 } = {}) {
+    while (true) {
+      const response = await apiFetch(`/v1/jobs/${encodeURIComponent(jobId)}`);
+      const job = await response.json();
+      const raw = job.progress?.percent || 0;
+      scene.imageStatus = job.status;
+      scene.imageProgress = Math.min(99, Math.round(raw));
+      scene.imageDetail = `Creating start frame · ${job.progress?.status || job.progress?.phase || job.status}`;
+      if (sceneOffset !== null) {
+        scene.progress = Math.min(99, Math.round(sceneOffset + raw * sceneSpan / 100));
+        scene.detail = scene.imageDetail;
+        syncProgress(scene);
+      }
+      syncImageProgress(scene);
+      if (TERMINAL.has(job.status)) {
+        if (job.status !== "succeeded") throw new Error(job.error || `Start-image job ${job.status}`);
+        return job;
+      }
+      await new Promise(resolve => setTimeout(resolve, 1800));
+    }
+  }
+
+  async function loadStartImagePreview(scene, job) {
+    const file = job?.files?.find(item => item.media_type === "image") || job?.files?.[0];
+    if (!file) throw new Error("LTX-2.5 produced no start image.");
+    const response = await apiFetch(file.url);
+    const blob = await response.blob();
+    if (scene.inputUrl) URL.revokeObjectURL(scene.inputUrl);
+    scene.inputUrl = URL.createObjectURL(blob);
+    scene.file = null;
+    scene.asset = null;
+    scene.startImageFile = file;
+    return file;
+  }
+
+  async function generateStartImage(scene, { forScene = false, width, height } = {}) {
+    const imagePrompt = (scene.imagePrompt || scene.prompt).trim();
+    if (!imagePrompt) {
+      const error = new Error("Add a start-image prompt or director's prompt first.");
+      if (!forScene) toast(error.message, true);
+      throw error;
+    }
+    if (!width || !height) [width, height] = RESOLUTIONS[scene.ratio][scene.quality];
+
+    scene.imageError = null;
+    scene.imageStatus = "queued";
+    scene.imageProgress = 1;
+    scene.imageDetail = "Sending start-image prompt to LTX-2.5";
+    scene.startImageJob = null;
+    if (!forScene) renderAll();
+
+    try {
+      let job = await postJson("/v1/generations/text-to-image", {
+        prompt: imagePrompt, model: "ltx25-distilled-image", width, height, wait: false,
+      });
+      scene.startImageJob = job;
+      job = await pollStartImageJob(job.id, scene, forScene ? { sceneOffset: 3, sceneSpan: 31 } : {});
+      scene.startImageJob = job;
+      const file = await loadStartImagePreview(scene, job);
+      scene.imageStatus = "succeeded";
+      scene.imageProgress = 100;
+      scene.imageDetail = "Start image ready";
+      if (!forScene) {
+        toast("Start image is ready.");
+        renderAll();
+      }
+      return { image_path: file.path };
+    } catch (error) {
+      scene.imageStatus = scene.imageStatus === "cancelled" ? "cancelled" : "failed";
+      scene.imageError = error.message || String(error);
+      scene.imageDetail = scene.imageError;
+      if (!forScene) {
+        toast(scene.imageError, true);
+        renderAll();
+      }
+      throw error;
+    }
+  }
+
   async function loadOutputPreview(scene) {
     const file = scene.job?.files?.find(item => item.media_type === "video") || scene.job?.files?.[0];
     if (!file) return;
@@ -300,6 +448,7 @@
         job = await pollJob(job.id, scene, "Rendering video", 4, 94);
       } else if (scene.mode === "image") {
         let imageSource;
+        let createdAutomatically = false;
         if (scene.file) {
           scene.detail = "Uploading start image";
           syncProgress(scene);
@@ -308,22 +457,22 @@
           scene.asset = asset;
           imageSource = { image_asset_id: asset.asset_id };
           scene.progress = 8;
+        } else if (scene.startImageFile) {
+          scene.detail = "Using the generated start image";
+          scene.progress = 8;
+          syncProgress(scene);
+          imageSource = { image_path: scene.startImageFile.path };
         } else {
           scene.detail = "No image supplied · creating a start frame with LTX-2.5";
           syncProgress(scene);
-          let still = await postJson("/v1/generations/text-to-image", {
-            prompt: scene.prompt.trim(), model: "ltx25-distilled-image", width, height, wait: false,
-          });
-          still = await pollJob(still.id, scene, "Creating start frame", 3, 31);
-          const imageFile = still.files.find(item => item.media_type === "image") || still.files[0];
-          if (!imageFile) throw new Error("Automatic start-frame generation produced no image.");
-          imageSource = { image_path: imageFile.path };
+          createdAutomatically = true;
+          imageSource = await generateStartImage(scene, { forScene: true, width, height });
         }
         job = await postJson("/v1/generations/image-to-video", {
           ...common, ...imageSource, model: "ltx25-distilled-i2v",
         });
         scene.job = job;
-        job = await pollJob(job.id, scene, "Animating scene", scene.file ? 9 : 35, scene.file ? 89 : 63);
+        job = await pollJob(job.id, scene, "Animating scene", createdAutomatically ? 35 : 9, createdAutomatically ? 63 : 89);
       } else if (scene.mode === "video") {
         if (!scene.file) throw new Error("Choose a video anchor for this mode.");
         scene.detail = "Uploading video anchor";
@@ -427,6 +576,7 @@
     if (!scene) return;
     const field = event.target.dataset.field;
     if (field === "prompt") scene.prompt = event.target.value;
+    if (field === "imagePrompt") scene.imagePrompt = event.target.value;
   });
 
   sceneList.addEventListener("change", event => {
@@ -439,6 +589,12 @@
       scene.file = file;
       scene.inputUrl = file ? URL.createObjectURL(file) : null;
       scene.asset = null;
+      scene.startImageJob = null;
+      scene.startImageFile = null;
+      scene.imageStatus = "idle";
+      scene.imageProgress = 0;
+      scene.imageDetail = file ? "Uploaded start image ready" : "Describe or upload a start frame";
+      scene.imageError = null;
       renderAll();
     } else if (field === "quality" || field === "ratio") {
       scene[field] = event.target.value;
@@ -465,7 +621,15 @@
       scene.asset = null;
       if (scene.inputUrl) URL.revokeObjectURL(scene.inputUrl);
       scene.inputUrl = null;
+      scene.startImageJob = null;
+      scene.startImageFile = null;
+      scene.imageStatus = "idle";
+      scene.imageProgress = 0;
+      scene.imageDetail = "Describe or upload a start frame";
+      scene.imageError = null;
       renderAll();
+    } else if (action === "generate-image") {
+      generateStartImage(scene).catch(() => { /* surfaced in the start-image panel */ });
     } else if (action === "generate") {
       generateScene(scene);
     } else if (action === "download") {
@@ -475,6 +639,9 @@
       cancelScene(scene);
     } else if (action === "delete") {
       if (["queued", "running"].includes(scene.status) && scene.job) cancelScene(scene);
+      if (["queued", "running"].includes(scene.imageStatus) && scene.startImageJob) {
+        postJson(`/v1/jobs/${encodeURIComponent(scene.startImageJob.id)}/cancel`, {}).catch(() => {});
+      }
       if (scene.inputUrl) URL.revokeObjectURL(scene.inputUrl);
       if (scene.outputUrl) URL.revokeObjectURL(scene.outputUrl);
       state.scenes = state.scenes.filter(item => item !== scene);
