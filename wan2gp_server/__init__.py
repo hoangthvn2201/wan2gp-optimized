@@ -2,7 +2,11 @@
 wan2gp_server - REST API server for WanGP media generation.
 
 Exposes WanGP's in-process Python API (shared/api.py) as a clean FastAPI
-service with scene-oriented generation endpoints:
+service with durable end-to-end episode projects plus scene-oriented generation
+endpoints:
+
+    POST /v1/projects
+    GET  /v1/projects/{project_id}
 
     POST /v1/generations/text-to-image
     POST /v1/generations/text-to-video
@@ -18,6 +22,11 @@ This integration uses WanGP by DeepBeepMeep. Use of the WanGP API is
 subject to the WanGP Terms and Conditions.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
-from .app import create_app  # noqa: F401
+
+def create_app(*args, **kwargs):
+    """Import FastAPI lazily so project/pipeline helpers remain lightweight."""
+    from .app import create_app as implementation
+
+    return implementation(*args, **kwargs)

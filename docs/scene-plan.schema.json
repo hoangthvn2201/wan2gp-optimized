@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wan2gp.local/schemas/scene-plan.schema.json",
+  "title": "Episode Studio scene plan",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "title",
+    "visual_concept",
+    "aspect_ratio",
+    "continuity",
+    "scenes"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 1
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "visual_concept": {
+      "type": "string",
+      "minLength": 1
+    },
+    "aspect_ratio": {
+      "type": "string",
+      "enum": ["16:9"]
+    },
+    "continuity": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["character", "anchor_object_immutable", "anchor_object_states", "style"],
+      "properties": {
+        "character": {
+          "type": "string",
+          "minLength": 1
+        },
+        "anchor_object_immutable": {
+          "type": "string",
+          "minLength": 1
+        },
+        "anchor_object_states": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "style": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "scenes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/scene"
+      }
+    }
+  },
+  "$defs": {
+    "scene": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "narrative_role", "script_reference", "prompt"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{1,62}$"
+        },
+        "narrative_role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "script_reference": {
+          "type": "string",
+          "minLength": 1
+        },
+        "surface_layer": {
+          "type": "string"
+        },
+        "decision_object": {
+          "type": "string"
+        },
+        "hidden_layer": {
+          "type": "string"
+        },
+        "reveal_transition": {
+          "type": "string"
+        },
+        "composition": {
+          "type": "string"
+        },
+        "motion": {
+          "type": "string"
+        },
+        "continuity_anchors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "on_screen_text": {
+          "type": "string"
+        },
+        "evidence_risk": {
+          "type": "string"
+        },
+        "prompt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "image_prompt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "video_prompt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "negative_prompt": {
+          "type": "string"
+        },
+        "duration_weight": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 1.0
+        },
+        "clip_duration_seconds": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 30,
+          "default": 8
+        },
+        "seed": {
+          "type": "integer"
+        },
+        "start_image_scene_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{1,62}$"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Episode Studio</title>
+  <link rel="stylesheet" href="/episode-studio.css">
+</head>
+<body>
+  <header class="topbar">
+    <button class="brand" id="homeButton" type="button" aria-label="Episode Studio home">
+      <span class="brand-mark">E</span><span><strong>Episode Studio</strong><small>WanGP · Kokoro · HyperFrames</small></span>
+    </button>
+    <div class="runtime"><span class="runtime-dot"></span><span id="runtimeLabel">Connecting…</span></div>
+  </header>
+
+  <main>
+    <section id="importView" class="view import-view">
+      <div class="hero">
+        <p class="eyebrow">END-TO-END VIDEO WORKSPACE</p>
+        <h1>From scene plan<br>to finished film.</h1>
+        <p>Upload the editorial plan and clean voiceover. The loaded model creates every scene, Kokoro narrates it, and HyperFrames delivers the final cut.</p>
+      </div>
+      <form id="projectForm" class="import-card">
+        <div class="step-heading"><span>01</span><div><h2>Source files</h2><p>The example Hidden Layer schema works unchanged.</p></div></div>
+        <div class="drop-grid">
+          <label class="drop"><input id="scenePlan" name="scene_plan" type="file" accept=".json,application/json" required><span class="drop-icon">{ }</span><strong>Scene plan</strong><small id="scenePlanName">Choose scene-plan.json</small></label>
+          <label class="drop"><input id="voiceover" name="voiceover" type="file" accept=".txt,text/plain" required><span class="drop-icon">Aa</span><strong>Voiceover</strong><small id="voiceoverName">Choose voiceover-source.txt</small></label>
+        </div>
+        <div id="sourceSummary" class="source-summary is-hidden"></div>
+
+        <div class="step-heading"><span>02</span><div><h2>Production setup</h2><p>Generation is locked to the model family already warm on this runtime.</p></div></div>
+        <div class="control-grid">
+          <label><span>Scene output</span><select id="studioMode" name="studio_mode"></select></label>
+          <label><span>Kokoro voice</span><select name="voice"><option value="am_adam">Adam · US</option><option value="am_michael">Michael · US</option><option value="af_heart">Heart · US</option><option value="af_nova">Nova · US</option><option value="bf_emma">Emma · UK</option><option value="bm_george">George · UK</option></select></label>
+          <label><span>Voice speed</span><select name="speed"><option value="0.9">0.9 · relaxed</option><option value="1" selected>1.0 · natural</option><option value="1.1">1.1 · brisk</option></select></label>
+          <label><span>Final render</span><select name="render_quality"><option value="standard">Standard</option><option value="high" selected>High</option></select></label>
+          <input name="render_fps" type="hidden" value="30">
+        </div>
+        <button class="primary create-button" type="submit"><span>Create episode</span><span>→</span></button>
+        <p id="formError" class="error is-hidden" role="alert"></p>
+      </form>
+
+      <section class="recent">
+        <div class="section-title"><p class="eyebrow">RECENT PROJECTS</p><button id="refreshProjects" type="button">Refresh</button></div>
+        <div id="projectList" class="project-list"><p class="empty">No episode projects yet.</p></div>
+      </section>
+    </section>
+
+    <section id="workspaceView" class="view workspace-view is-hidden">
+      <div id="workspaceHeader" class="workspace-header"></div>
+      <div class="workspace-grid">
+        <aside>
+          <div class="rail-card"><p class="eyebrow">PIPELINE</p><div id="stageRail"></div></div>
+          <div class="rail-card narration-card"><p class="eyebrow">NARRATION</p><div id="narrationPanel"><p class="muted">Narration has not started.</p></div></div>
+        </aside>
+        <div>
+          <div class="board-title"><div><p class="eyebrow">SCENE BOARD</p><h2 id="sceneCount"></h2></div><div class="filters"><button class="active" data-filter="all">All</button><button data-filter="review">Needs review</button><button data-filter="failed">Failed</button></div></div>
+          <div id="sceneBoard" class="scene-board"></div>
+          <div id="deliveryPanel" class="delivery"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <div id="toastRegion" class="toasts" aria-live="polite"></div>
+  <script src="/episode-studio.js"></script>
+</body>
+</html>

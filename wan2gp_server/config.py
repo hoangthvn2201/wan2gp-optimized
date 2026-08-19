@@ -18,6 +18,9 @@ Environment variables:
     WAN2GP_SERVER_PRESETS_DIR   Optional folder with extra *.json model presets
     WAN2GP_SERVER_EAGER_INIT    "1" to load the WanGP runtime at startup instead of on first job
     WAN2GP_SERVER_API_KEY       If set, all /v1 requests must send it in the X-API-Key header
+    WAN2GP_STUDIO_MODE          image-z | image-ltx | video-ltx (default: image-z)
+    WAN2GP_HYPERFRAMES_BIN      HyperFrames command (default: npx hyperframes@0.8.3)
+    WAN2GP_SERVER_MOCK_PIPELINE "1" to use deterministic local test artifacts
 """
 
 import os
@@ -50,6 +53,9 @@ class ServerConfig:
     presets_dir: Optional[Path] = None
     eager_init: bool = False
     api_key: Optional[str] = None
+    studio_mode: str = "image-z"
+    hyperframes_bin: str = "npx hyperframes@0.8.3"
+    mock_pipeline: bool = False
 
     @classmethod
     def from_env(cls) -> "ServerConfig":
@@ -76,9 +82,16 @@ class ServerConfig:
             cfg.presets_dir = Path(os.environ["WAN2GP_SERVER_PRESETS_DIR"]).resolve()
         cfg.eager_init = os.environ.get("WAN2GP_SERVER_EAGER_INIT", "0") == "1"
         cfg.api_key = os.environ.get("WAN2GP_SERVER_API_KEY") or None
+        cfg.studio_mode = os.environ.get("WAN2GP_STUDIO_MODE", cfg.studio_mode)
+        cfg.hyperframes_bin = os.environ.get("WAN2GP_HYPERFRAMES_BIN", cfg.hyperframes_bin)
+        cfg.mock_pipeline = os.environ.get("WAN2GP_SERVER_MOCK_PIPELINE", "0") == "1"
 
         return cfg
 
     @property
     def assets_dir(self) -> Path:
         return self.data_dir / "assets"
+
+    @property
+    def projects_dir(self) -> Path:
+        return self.data_dir / "projects"

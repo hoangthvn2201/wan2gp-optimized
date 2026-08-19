@@ -23,6 +23,7 @@
 *.html
 !plugins/motion_designer/assets/motion_designer_iframe_template.html
 !wan2gp_server/static/index.html
+!wan2gp_server/static/episode-index.html
 *.pdf
 *.whl
 *.exe

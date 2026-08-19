@@ -1,8 +1,9 @@
 # Wan2GP Server
 
 A clean FastAPI service that exposes [WanGP](https://github.com/deepbeepmeep/Wan2GP)'s
-in-process Python API (`shared/api.py`) as a REST API and serves the Frameflow
-scene-based video studio at `/`:
+in-process Python API (`shared/api.py`) as a REST API. It serves the end-to-end
+Episode Studio at `/` and the original low-level Frameflow scene studio at
+`/frameflow`:
 
 | Task | Endpoint |
 |---|---|
@@ -31,7 +32,29 @@ python -m wan2gp_server --port 8000        # add --eager to preload the runtime
 ```
 
 Interactive OpenAPI docs: `http://localhost:8000/docs`
-Frameflow Studio: `http://localhost:8000/`
+Episode Studio: `http://localhost:8000/`
+
+Frameflow Studio: `http://localhost:8000/frameflow`
+
+## Episode Studio
+
+Run [`episode_studio_colab.ipynb`](../episode_studio_colab.ipynb) for the
+complete Colab setup. Its `STUDIO_MODE` selects and preloads one generation
+family:
+
+- `image-z`: Z-Image Turbo still scenes;
+- `image-ltx`: LTX-2.5 single-frame scenes;
+- `video-ltx`: LTX-2.5 video scenes.
+
+Upload `scene-plan.json` and `voiceover-source.txt` at `/`. A durable project
+then generates scene revisions, Kokoro narration, word timestamps, a checked
+HyperFrames composition, and the final MP4. Projects live under
+`WAN2GP_SERVER_DATA_DIR/projects`, survive browser refreshes, and can resume
+after a server restart. Regeneration creates a candidate revision; the current
+accepted asset and final cut remain available until that candidate is accepted.
+
+Project endpoints begin at `POST /v1/projects`; see `/docs` for the full upload,
+status, regeneration, acceptance, render, event, and artifact API.
 
 ```bash
 # 1. Submit (returns immediately with a queued job)
@@ -78,7 +101,7 @@ client.download(job, "bicycle.mp4")
 ### `GET /health`
 
 ```json
-{"status": "ok", "version": "0.1.0", "wan2gp_root": "/path/to/Wan2GP",
+{"status": "ok", "version": "0.2.0", "wan2gp_root": "/path/to/Wan2GP",
  "runtime_loaded": true, "active_job_id": null, "queued_jobs": 0}
 ```
 

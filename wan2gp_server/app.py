@@ -3,6 +3,8 @@
 Endpoints (all JSON unless noted):
 
     GET  /health                              Liveness + runtime/queue state
+    POST /v1/projects                         Upload plan + voiceover and run an episode
+    GET  /v1/projects/{project_id}            Durable episode state and artifact URLs
     GET  /v1/models                           List model presets (?task=t2i|t2v|i2v)
     POST /v1/models/preload                   Warm up models (download checkpoints + load weights)
     POST /v1/generations/text-to-image        Submit a text-to-image job
@@ -21,12 +23,14 @@ can be fetched once `status == "succeeded"`. Set `"wait": true` in the request
 body to block until completion instead of polling.
 """
 
+import copy
+import json
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Request, UploadFile
+from fastapi import Body, Depends, FastAPI, Form, HTTPException, Query, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse
 
@@ -42,6 +46,9 @@ from .media import (
     save_upload,
 )
 from .presets import ModelPreset, PresetRegistry, build_settings, build_warmup_settings
+from .production import ProductionCoordinator
+from .projects import ProjectError, ProjectRepository
+from .scene_plan import InputValidationError
 from .schemas import (
     AssetInfo,
     ConcatenateRequest,
@@ -70,11 +77,15 @@ def create_app(config: Optional[ServerConfig] = None) -> FastAPI:
     presets = PresetRegistry(config.presets_dir)
     config.data_dir.mkdir(parents=True, exist_ok=True)
     config.assets_dir.mkdir(parents=True, exist_ok=True)
+    projects = ProjectRepository(config.projects_dir)
+    production = ProductionCoordinator(config, projects, engine, presets)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         engine.start()
+        production.start()
         yield
+        production.stop()
         engine.stop()
 
     app = FastAPI(
@@ -87,6 +98,8 @@ def create_app(config: Optional[ServerConfig] = None) -> FastAPI:
     app.state.engine = engine
     app.state.store = store
     app.state.presets = presets
+    app.state.projects = projects
+    app.state.production = production
 
     static_dir = Path(__file__).resolve().parent / "static"
 
@@ -148,10 +161,22 @@ def create_app(config: Optional[ServerConfig] = None) -> FastAPI:
 
     @app.get("/", include_in_schema=False)
     async def studio() -> FileResponse:
-        index = static_dir / "index.html"
+        index = static_dir / "episode-index.html"
         if not index.is_file():
             raise HTTPException(status_code=404, detail="Studio UI is not installed")
         return FileResponse(index, media_type="text/html")
+
+    @app.get("/frameflow", include_in_schema=False)
+    async def legacy_studio() -> FileResponse:
+        return FileResponse(static_dir / "index.html", media_type="text/html")
+
+    @app.get("/episode-studio.css", include_in_schema=False)
+    async def episode_studio_css() -> FileResponse:
+        return FileResponse(static_dir / "episode-studio.css", media_type="text/css")
+
+    @app.get("/episode-studio.js", include_in_schema=False)
+    async def episode_studio_js() -> FileResponse:
+        return FileResponse(static_dir / "episode-studio.js", media_type="application/javascript")
 
     @app.get("/studio.css", include_in_schema=False)
     async def studio_css() -> FileResponse:
@@ -171,6 +196,156 @@ def create_app(config: Optional[ServerConfig] = None) -> FastAPI:
             active_job_id=active.id if active else None,
             queued_jobs=store.queued_count(),
         )
+
+    # ------------------------------------------------------------------
+    # Episode Studio projects
+    # ------------------------------------------------------------------
+
+    def public_project(value: dict) -> dict:
+        project = copy.deepcopy(value)
+        project_id = project["id"]
+        for scene in project.get("scenes", []):
+            for revision in scene.get("revisions", []):
+                if revision.get("path"):
+                    revision["url"] = f"/v1/projects/{project_id}/files/{revision['path']}"
+        for key in ("audio", "transcript", "raw_transcript", "report"):
+            relative = project.get("narration", {}).get(key)
+            if relative:
+                project["narration"][f"{key}_url"] = f"/v1/projects/{project_id}/files/{relative}"
+        if project.get("final", {}).get("path"):
+            project["final"]["url"] = f"/v1/projects/{project_id}/files/{project['final']['path']}"
+        return project
+
+    @app.get("/v1/studio/config", dependencies=[Depends(require_api_key)])
+    async def studio_config() -> dict:
+        allowed_modes = (
+            ["image-z"]
+            if config.studio_mode == "image-z"
+            else ["image-ltx", "video-ltx"]
+        )
+        return {
+            "runtime_mode": config.studio_mode,
+            "allowed_modes": allowed_modes,
+            "model_family": "Z-Image Turbo" if config.studio_mode == "image-z" else "LTX-2.5 Distilled",
+            "mock_pipeline": config.mock_pipeline,
+        }
+
+    @app.post("/v1/projects", dependencies=[Depends(require_api_key)])
+    async def create_project(
+        scene_plan: UploadFile,
+        voiceover: UploadFile,
+        studio_mode: str = Form(...),
+        voice: str = Form("am_adam"),
+        speed: float = Form(1.0),
+        render_quality: str = Form("high"),
+        render_fps: int = Form(30),
+    ) -> dict:
+        allowed = ["image-z"] if config.studio_mode == "image-z" else ["image-ltx", "video-ltx"]
+        if studio_mode not in allowed:
+            raise HTTPException(
+                status_code=409,
+                detail=f"This server is preloaded for {config.studio_mode}; allowed project modes: {', '.join(allowed)}",
+            )
+        try:
+            plan_value = json.loads((await scene_plan.read()).decode("utf-8"))
+            voiceover_text = (await voiceover.read()).decode("utf-8")
+            project = projects.create(
+                plan_value,
+                voiceover_text,
+                studio_mode=studio_mode,
+                voice=voice,
+                speed=speed,
+                render_quality=render_quality,
+                render_fps=render_fps,
+            )
+        except UnicodeDecodeError as exc:
+            raise HTTPException(status_code=422, detail="Uploads must be UTF-8 text") from exc
+        except json.JSONDecodeError as exc:
+            raise HTTPException(status_code=422, detail=f"Invalid scene-plan JSON: {exc}") from exc
+        except (InputValidationError, ProjectError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        production.submit_run(project["id"])
+        return public_project(projects.load(project["id"]))
+
+    @app.get("/v1/projects", dependencies=[Depends(require_api_key)])
+    async def list_projects() -> dict:
+        return {"projects": [public_project(value) for value in projects.list()]}
+
+    @app.get("/v1/projects/{project_id}", dependencies=[Depends(require_api_key)])
+    async def get_project(project_id: str) -> dict:
+        try:
+            return public_project(projects.load(project_id))
+        except ProjectError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @app.get("/v1/projects/{project_id}/events", dependencies=[Depends(require_api_key)])
+    async def project_events(project_id: str, after: int = Query(0, ge=0)) -> dict:
+        try:
+            return {"events": projects.events(project_id, after)}
+        except ProjectError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @app.post("/v1/projects/{project_id}/run", dependencies=[Depends(require_api_key)])
+    async def run_project(project_id: str) -> dict:
+        try:
+            projects.load(project_id)
+            production.submit_run(project_id)
+            return public_project(projects.load(project_id))
+        except ProjectError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @app.post("/v1/projects/{project_id}/cancel", dependencies=[Depends(require_api_key)])
+    async def cancel_project(project_id: str) -> dict:
+        try:
+            projects.load(project_id)
+            production.cancel(project_id)
+            return public_project(projects.load(project_id))
+        except ProjectError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @app.post(
+        "/v1/projects/{project_id}/scenes/{scene_id}/regenerate",
+        dependencies=[Depends(require_api_key)],
+    )
+    async def regenerate_scene(
+        project_id: str,
+        scene_id: str,
+        values: dict = Body(default={}),
+    ) -> dict:
+        try:
+            project = projects.load(project_id)
+            if not any(scene["id"] == scene_id for scene in project["scenes"]):
+                raise ProjectError(f"Unknown scene: {scene_id}")
+            production.submit_regeneration(project_id, scene_id, dict(values))
+            return {"status": "queued", "project_id": project_id, "scene_id": scene_id}
+        except ProjectError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @app.post(
+        "/v1/projects/{project_id}/scenes/{scene_id}/accept/{revision_id}",
+        dependencies=[Depends(require_api_key)],
+    )
+    async def accept_scene_revision(project_id: str, scene_id: str, revision_id: str) -> dict:
+        try:
+            return public_project(production.accept_revision(project_id, scene_id, revision_id))
+        except ProjectError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.post("/v1/projects/{project_id}/render", dependencies=[Depends(require_api_key)])
+    async def rebuild_project(project_id: str) -> dict:
+        try:
+            projects.load(project_id)
+            production.submit_rebuild(project_id)
+            return {"status": "queued", "project_id": project_id}
+        except ProjectError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @app.get("/v1/projects/{project_id}/files/{relative:path}", dependencies=[Depends(require_api_key)])
+    async def project_file(project_id: str, relative: str) -> FileResponse:
+        try:
+            return FileResponse(projects.artifact(project_id, relative))
+        except ProjectError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     @app.get("/v1/models", response_model=ModelListResponse, dependencies=[Depends(require_api_key)])
     async def list_models(
