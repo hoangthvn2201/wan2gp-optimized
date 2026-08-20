@@ -678,13 +678,9 @@ function animate(id,keyframes,delay,duration,easing){{const node=document.getEle
         root = self.repository.project_root(project_id)
         if not self.config.mock_pipeline:
             prefix = shlex.split(self.config.hyperframes_bin)
-            for progress, args in (
-                (30, ["lint"]),
-                (60, ["validate", "--timeout", "60000"]),
-                (85, ["inspect", "--samples", "12", "--timeout", "120000"]),
-            ):
-                self._set_stage(project_id, "checks", "running", f"HyperFrames {args[0]}", progress)
-                self._run_command([*prefix, *args], cwd=root / "composition", timeout=1800)
+            args = ["check", "--samples", "12", "--timeout", "120000"]
+            self._set_stage(project_id, "checks", "running", "HyperFrames check", 60)
+            self._run_command([*prefix, *args], cwd=root / "composition", timeout=1800)
         self._set_stage(project_id, "checks", "ready", "Composition checks passed", 100)
 
     def _render(self, project_id: str) -> None:

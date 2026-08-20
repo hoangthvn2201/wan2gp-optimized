@@ -48,6 +48,43 @@
     return Math.round(stages.reduce((sum, stage) => sum + (stage.status === "ready" ? 100 : Number(stage.progress || 0)), 0) / stages.length);
   }
 
+  function renderNarration(project) {
+    const panel = $("#narrationPanel");
+    const narration = project.narration || {};
+    const sourceUrl = narration.audio_url || "";
+    if (!sourceUrl) {
+      if (panel.dataset.audioUrl) {
+        panel.replaceChildren();
+        delete panel.dataset.audioUrl;
+      }
+      if (!panel.firstElementChild) panel.innerHTML = '<p class="muted">Narration has not started.</p>';
+      return;
+    }
+    if (panel.dataset.audioUrl !== sourceUrl) {
+      const audio = document.createElement("audio");
+      audio.controls = true;
+      audio.preload = "metadata";
+      audio.src = sourceUrl;
+      const metadata = document.createElement("p");
+      metadata.className = "muted";
+      metadata.dataset.narrationMeta = "";
+      panel.replaceChildren(audio, metadata);
+      panel.dataset.audioUrl = sourceUrl;
+    }
+    const metadata = $("[data-narration-meta]", panel);
+    if (metadata) metadata.textContent = Number(narration.duration_seconds || 0).toFixed(1) + " seconds · " + (narration.voice || project.configuration.voice);
+  }
+
+  function openImageLightbox(scene, revision) {
+    const dialog = $("#assetLightbox");
+    const image = document.createElement("img");
+    image.src = revision.url;
+    image.alt = scene.id + " " + scene.narrative_role.replaceAll("-", " ");
+    $("#lightboxTitle").textContent = scene.id + " · " + scene.narrative_role.replaceAll("-", " ");
+    $("#lightboxMedia").replaceChildren(image);
+    if (!dialog.open) dialog.showModal();
+  }
+
   function renderWorkspace() {
     const project = state.project;
     if (!project) return;
@@ -57,8 +94,7 @@
     $("#workspaceHeader").innerHTML = `<div class="workspace-title"><div><p class="eyebrow">${esc(project.configuration.studio_mode)} · ${esc(project.status)}</p><h1>${esc(project.title)}</h1><p>${project.scenes.length} scenes · ${progress}% complete${project.error ? ` · ${esc(project.error)}` : ""}</p></div><div class="workspace-actions"><button class="resume" data-project-action="resume">Resume pipeline</button><button class="cancel" data-project-action="cancel">Cancel</button></div></div><div class="overall"><i style="width:${progress}%"></i></div>`;
     $("#stageRail").innerHTML = Object.entries(project.stages).map(([name, stage]) => `<div class="stage ${esc(stage.status)}"><strong>${esc(name)}</strong><small>${esc(stage.detail || stage.status)}${ACTIVE.has(stage.status) ? ` · ${stage.progress || 0}%` : ""}</small></div>`).join("");
     $("#sceneCount").textContent = `${project.scenes.length} planned scenes`;
-    const narration = project.narration || {};
-    $("#narrationPanel").innerHTML = narration.audio_url ? `<audio controls preload="metadata" src="${esc(narration.audio_url)}"></audio><p class="muted">${Number(narration.duration_seconds || 0).toFixed(1)} seconds · ${esc(narration.voice || project.configuration.voice)}</p>` : '<p class="muted">Narration has not started.</p>';
+    renderNarration(project);
     const visible = project.scenes.filter(scene => state.filter === "all" || (state.filter === "review" && scene.candidate_revision) || (state.filter === "failed" && scene.status === "failed"));
     $("#sceneBoard").innerHTML = visible.map((scene, index) => sceneCard(scene, project.scenes.indexOf(scene))).join("") || '<p class="empty">No scenes match this filter.</p>';
     renderDelivery();
@@ -67,8 +103,9 @@
   function sceneCard(scene, index) {
     const revision = selectedRevision(scene);
     const preview = revision ? (revision.media_type === "video" ? `<video src="${esc(revision.url)}" muted controls loop playsinline preload="metadata"></video>` : `<img src="${esc(revision.url)}" alt="${esc(scene.id)}">`) : '<div class="preview-empty">Waiting for generation</div>';
+    const expand = revision && revision.media_type !== "video" ? '<button class="expand-image" type="button" data-action="expand" aria-label="View full image" title="View full image"><span aria-hidden="true">⤢</span> Expand</button>' : "";
     const timing = scene.timing ? `${Number(scene.timing.start).toFixed(1)}s – ${(Number(scene.timing.start) + Number(scene.timing.duration)).toFixed(1)}s` : "Timing pending";
-    return `<article class="scene-card" data-scene="${esc(scene.id)}"><div class="preview"><span class="scene-number">${String(index + 1).padStart(2,"0")}</span>${scene.candidate_revision ? '<span class="candidate-tag">NEW CANDIDATE</span>' : ""}${preview}</div><div class="scene-body"><div class="scene-top"><div><h3>${esc(scene.narrative_role.replaceAll("-"," "))}</h3><div class="scene-meta">${esc(scene.id)} · ${timing} · ${scene.accepted_revision || "no revision"}</div></div><span class="status ${esc(scene.status)}">${esc(scene.status)}</span></div><textarea data-prompt>${esc(revision?.prompt || scene.prompt)}</textarea>${ACTIVE.has(scene.status) ? `<div class="scene-progress"><i style="width:${scene.progress || 0}%"></i></div>` : ""}<p class="scene-detail">${esc(scene.detail || "Waiting")}</p><div class="scene-actions"><button class="regenerate" data-action="regenerate">Regenerate</button>${scene.candidate_revision ? `<button class="accept" data-action="accept" data-revision="${esc(scene.candidate_revision)}">Use this revision</button>` : ""}${revision ? `<button class="download" data-action="download">Download asset</button>` : ""}</div></div></article>`;
+    return `<article class="scene-card" data-scene="${esc(scene.id)}"><div class="preview"><span class="scene-number">${String(index + 1).padStart(2,"0")}</span>${scene.candidate_revision ? '<span class="candidate-tag">NEW CANDIDATE</span>' : ""}${preview}${expand}</div><div class="scene-body"><div class="scene-top"><div><h3>${esc(scene.narrative_role.replaceAll("-"," "))}</h3><div class="scene-meta">${esc(scene.id)} · ${timing} · ${scene.accepted_revision || "no revision"}</div></div><span class="status ${esc(scene.status)}">${esc(scene.status)}</span></div><textarea data-prompt>${esc(revision?.prompt || scene.prompt)}</textarea>${ACTIVE.has(scene.status) ? `<div class="scene-progress"><i style="width:${scene.progress || 0}%"></i></div>` : ""}<p class="scene-detail">${esc(scene.detail || "Waiting")}</p><div class="scene-actions"><button class="regenerate" data-action="regenerate">Regenerate</button>${scene.candidate_revision ? `<button class="accept" data-action="accept" data-revision="${esc(scene.candidate_revision)}">Use this revision</button>` : ""}${revision ? `<button class="download" data-action="download">Download asset</button>` : ""}</div></div></article>`;
   }
 
   function renderDelivery() {
@@ -116,11 +153,14 @@
     const button = event.target.closest("[data-action]"); if (!button) return;
     const card = button.closest("[data-scene]"); const sceneId = card.dataset.scene; const scene = state.project.scenes.find(item => item.id === sceneId);
     try {
+      if (button.dataset.action === "expand") { openImageLightbox(scene, selectedRevision(scene)); return; }
       if (button.dataset.action === "regenerate") { await api(`/v1/projects/${state.project.id}/scenes/${sceneId}/regenerate`, {method:"POST", body:JSON.stringify({prompt:$("[data-prompt]",card).value})}); toast(`${sceneId} regeneration queued.`); await openProject(state.project.id); }
       if (button.dataset.action === "accept") { state.project = await api(`/v1/projects/${state.project.id}/scenes/${sceneId}/accept/${button.dataset.revision}`, {method:"POST",body:"{}"}); toast("Revision accepted. Final cut is now stale."); renderWorkspace(); }
       if (button.dataset.action === "download") { const revision = selectedRevision(scene); const link=document.createElement("a"); link.href=revision.url; link.download=revision.path.split("/").pop(); link.click(); }
     } catch (error) { toast(error.message,true); }
   });
+  $("#closeLightbox").addEventListener("click", () => $("#assetLightbox").close());
+  $("#assetLightbox").addEventListener("click", event => { if (event.target === event.currentTarget) event.currentTarget.close(); });
   document.addEventListener("click", async event => {
     const button = event.target.closest("[data-project-action]"); if (!button || !state.project) return;
     try { const action=button.dataset.projectAction; if(action==="resume") await api(`/v1/projects/${state.project.id}/run`,{method:"POST",body:"{}"}); if(action==="cancel") await api(`/v1/projects/${state.project.id}/cancel`,{method:"POST",body:"{}"}); if(action==="render") await api(`/v1/projects/${state.project.id}/render`,{method:"POST",body:"{}"}); toast(`${action} requested.`); await openProject(state.project.id); } catch(error){toast(error.message,true);}
