@@ -93,6 +93,47 @@ class ScenePlanTests(unittest.TestCase):
 
 
 class MockEndToEndTests(unittest.TestCase):
+    def test_project_supports_precise_voice_speed_and_background_music(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            data = Path(temporary)
+            config = ServerConfig(data_dir=data, mock_pipeline=True, studio_mode="image-z")
+            repository = ProjectRepository(config.projects_dir)
+            project = repository.create(
+                PLAN,
+                VOICEOVER,
+                studio_mode="image-z",
+                voice="am_adam",
+                speed=0.87,
+                render_quality="draft",
+                render_fps=24,
+                add_background_music=True,
+                background_music_style="gentle",
+                background_music_volume=0.18,
+            )
+            self.assertEqual(project["configuration"]["speed"], 0.87)
+            coordinator = ProductionCoordinator(
+                config, repository, FakeEngine(), FakePresets()
+            )
+            coordinator.start()
+            try:
+                coordinator.submit_run(project["id"])
+                completed = wait_for(
+                    repository,
+                    project["id"],
+                    lambda value: value["status"] == "complete",
+                )
+                root = repository.project_root(project["id"])
+                self.assertTrue(completed["final"]["background_music"])
+                self.assertEqual(completed["background_music"]["style"], "gentle")
+                self.assertEqual(completed["background_music"]["volume"], 0.18)
+                self.assertTrue(
+                    (root / completed["background_music"]["path"]).is_file()
+                )
+                self.assertTrue((root / completed["final"]["path"]).is_file())
+                self.assertEqual(completed["stages"]["music"]["status"], "ready")
+            finally:
+                coordinator.stop()
+
     def test_project_runs_regenerates_and_rebuilds(self):
         with tempfile.TemporaryDirectory() as temporary:
             data = Path(temporary)

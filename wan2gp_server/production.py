@@ -19,6 +19,7 @@ from typing import Any
 
 from PIL import Image, ImageDraw
 
+from .background_music import generate_ambient_score, mix_ambient_score
 from .config import ServerConfig
 from .engine import Wan2GPEngine
 from .jobs import Job, JobStatus, media_type_of
@@ -536,8 +537,10 @@ class ProductionCoordinator:
             scene["candidate_revision"] = None
             scene["prompt"] = revision["prompt"]
             scene["negative_prompt"] = revision.get("negative_prompt", scene.get("negative_prompt", ""))
-            for name in ("composition", "checks", "render"):
-                project["stages"][name].update({"status": "stale", "detail": "Accepted scene changed", "progress": 0})
+            for name in ("composition", "checks", "render", "music"):
+                project["stages"].setdefault(name, {}).update(
+                    {"status": "stale", "detail": "Accepted scene changed", "progress": 0}
+                )
             if project.get("final"):
                 project["final"]["stale"] = True
             project["status"] = "ready"
@@ -551,7 +554,22 @@ class ProductionCoordinator:
             raise ProductionError("Pipeline cancelled")
         self._compose(project_id)
         self._check(project_id)
-        self._render(project_id)
+        base_video, revision = self._render_base(project_id)
+        project = self.repository.load(project_id)
+        if project.get("configuration", {}).get("add_background_music", False):
+            final_video = self._add_background_music(
+                project_id, base_video=base_video, revision=revision
+            )
+        else:
+            final_video = base_video
+            self._set_stage(
+                project_id,
+                "music",
+                "ready",
+                "Background music disabled",
+                100,
+            )
+        self._finalize_render(project_id, final_video, revision)
         self.repository.update(
             project_id,
             lambda project: project.update(
@@ -683,12 +701,20 @@ function animate(id,keyframes,delay,duration,easing){{const node=document.getEle
             self._run_command([*prefix, *args], cwd=root / "composition", timeout=1800)
         self._set_stage(project_id, "checks", "ready", "Composition checks passed", 100)
 
-    def _render(self, project_id: str) -> None:
-        self._set_stage(project_id, "render", "running", "Rendering final video", 5)
+    def _render_base(self, project_id: str) -> tuple[Path, int]:
+        self._set_stage(project_id, "render", "running", "Rendering video", 5)
         project = self.repository.load(project_id)
         root = self.repository.project_root(project_id)
         revision = 1 + len(list((root / "renders").glob("cut-r*.mp4")))
-        output = root / "renders" / f"cut-r{revision:04d}.mp4"
+        music_enabled = bool(
+            project.get("configuration", {}).get("add_background_music", False)
+        )
+        filename = (
+            f"base-r{revision:04d}.mp4"
+            if music_enabled
+            else f"cut-r{revision:04d}.mp4"
+        )
+        output = root / "renders" / filename
         if self.config.mock_pipeline:
             self._mock_final(output, root / project["narration"]["audio"])
         else:
@@ -709,17 +735,113 @@ function animate(id,keyframes,delay,duration,easing){{const node=document.getEle
         media = self._probe_media(output)
         if not media["has_video"] or not media["has_audio"] or media["duration_seconds"] <= 0:
             raise ProductionError("Final media verification failed")
+        detail = "Base video ready for music" if music_enabled else "Final video ready"
+        self._set_stage(
+            project_id,
+            "render",
+            "ready",
+            detail,
+            100,
+            path=_relative(root, output),
+        )
+        return output, revision
+
+    def _add_background_music(
+        self,
+        project_id: str,
+        *,
+        base_video: Path,
+        revision: int,
+    ) -> Path:
+        project = self.repository.load(project_id)
+        root = self.repository.project_root(project_id)
+        configuration = project.get("configuration", {})
+        style = str(configuration.get("background_music_style", "editorial"))
+        volume = float(configuration.get("background_music_volume", 0.22))
+        duration = float(project["timing"]["duration_seconds"])
+        music = (
+            root
+            / "background-music"
+            / f"ambient-{style}-r{revision:04d}.wav"
+        )
+        self._set_stage(
+            project_id,
+            "music",
+            "running",
+            f"Generating {style} ambient score",
+            10,
+        )
+        generate_ambient_score(
+            music,
+            duration=duration,
+            scenes=project["scenes"],
+            timings=project["timing"]["scenes"],
+            style=style,
+            seed_key=f"{project_id}:{style}",
+        )
+        if self._project_cancelled(project_id):
+            raise ProductionError("Pipeline cancelled")
+        self._set_stage(
+            project_id,
+            "music",
+            "running",
+            f"Mixing music at {volume:g}",
+            72,
+        )
+        output = root / "renders" / f"cut-r{revision:04d}.mp4"
+        mix_ambient_score(
+            base_video,
+            music,
+            output,
+            duration=duration,
+            volume=volume,
+        )
+
+        def update(value: dict[str, Any]) -> None:
+            value["background_music"] = {
+                "status": "ready",
+                "path": _relative(root, music),
+                "style": style,
+                "volume": volume,
+                "duration_seconds": duration,
+            }
+
+        self.repository.update(project_id, update)
+        self._set_stage(
+            project_id,
+            "music",
+            "ready",
+            "Background music mixed",
+            100,
+            path=_relative(root, music),
+        )
+        return output
+
+    def _finalize_render(
+        self,
+        project_id: str,
+        output: Path,
+        revision: int,
+    ) -> None:
+        project = self.repository.load(project_id)
+        root = self.repository.project_root(project_id)
+        media = self._probe_media(output)
+        if not media["has_video"] or not media["has_audio"] or media["duration_seconds"] <= 0:
+            raise ProductionError("Final media verification failed")
+        has_music = bool(
+            project.get("configuration", {}).get("add_background_music", False)
+        )
 
         def update(value: dict[str, Any]) -> None:
             value["final"] = {
                 "revision": revision,
                 "path": _relative(root, output),
                 "stale": False,
+                "background_music": has_music,
                 **media,
             }
 
         self.repository.update(project_id, update)
-        self._set_stage(project_id, "render", "ready", "Final video ready", 100, path=_relative(root, output))
 
     @staticmethod
     def _run_command(command: list[str], *, cwd: Path, timeout: float) -> None:

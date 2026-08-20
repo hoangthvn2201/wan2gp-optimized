@@ -111,11 +111,22 @@
   function renderDelivery() {
     const project = state.project;
     const final = project.final || {};
+    const panel = $("#deliveryPanel");
     if (!final.url) {
-      $("#deliveryPanel").innerHTML = `<p class="eyebrow">FINAL CUT</p><h2>${project.status === "failed" ? "Production needs attention" : "Building the first cut"}</h2><p>${esc(project.stages.render.detail)}</p>`;
+      delete panel.dataset.finalUrl;
+      panel.innerHTML = `<p class="eyebrow">FINAL CUT</p><h2>${project.status === "failed" ? "Production needs attention" : "Building the first cut"}</h2><p>${esc(project.stages.render.detail)}</p>`;
       return;
     }
-    $("#deliveryPanel").innerHTML = `<p class="eyebrow">FINAL CUT ${final.stale ? "· STALE" : "· READY"}</p><h2>${final.stale ? "A newer scene is ready to rebuild" : "Your episode is ready"}</h2><p>${Number(final.duration_seconds || 0).toFixed(1)} seconds · revision ${final.revision}</p><video src="${esc(final.url)}" controls preload="metadata"></video><div class="delivery-actions"><a href="${esc(final.url)}" download>Download MP4</a><button data-project-action="render">Rebuild final</button></div>`;
+    const music = project.background_music || {};
+    const summary = `${Number(final.duration_seconds || 0).toFixed(1)} seconds · revision ${final.revision}${final.background_music ? ` · ${music.style || "editorial"} music at ${Math.round(Number(music.volume || 0) * 100)}%` : ""}`;
+    if (panel.dataset.finalUrl === final.url) {
+      $("[data-final-state]", panel).textContent = `FINAL CUT ${final.stale ? "· STALE" : "· READY"}`;
+      $("[data-final-title]", panel).textContent = final.stale ? "A newer scene is ready to rebuild" : "Your episode is ready";
+      $("[data-final-summary]", panel).textContent = summary;
+      return;
+    }
+    panel.dataset.finalUrl = final.url;
+    panel.innerHTML = `<p class="eyebrow" data-final-state>FINAL CUT ${final.stale ? "· STALE" : "· READY"}</p><h2 data-final-title>${final.stale ? "A newer scene is ready to rebuild" : "Your episode is ready"}</h2><p data-final-summary>${esc(summary)}</p><video src="${esc(final.url)}" controls preload="metadata"></video><div class="delivery-actions"><a href="${esc(final.url)}" download>Download MP4</a><button data-project-action="render">Rebuild final</button></div>`;
   }
 
   async function openProject(id) {
@@ -139,6 +150,15 @@
     try { const plan = JSON.parse(await file.text()); $("#sourceSummary").textContent = `${plan.title || "Untitled"} · ${plan.scenes?.length || 0} scenes · ${plan.aspect_ratio || "ratio unknown"}`; $("#sourceSummary").classList.remove("is-hidden"); } catch (_) { $("#sourceSummary").textContent = "Scene plan JSON could not be parsed"; $("#sourceSummary").classList.remove("is-hidden"); }
   });
   $("#voiceover").addEventListener("change", event => { const file = event.target.files[0]; $("#voiceoverName").textContent = file?.name || "Choose voiceover-source.txt"; });
+  function syncMusicControls() {
+    const enabled = $("#addBackgroundMusic").checked;
+    document.querySelectorAll("[data-music-control] select, [data-music-control] input").forEach(control => {
+      control.disabled = !enabled;
+      control.closest("[data-music-control]").classList.toggle("control-disabled", !enabled);
+    });
+  }
+  $("#addBackgroundMusic").addEventListener("change", syncMusicControls);
+  syncMusicControls();
   $("#projectForm").addEventListener("submit", async event => {
     event.preventDefault();
     const button = $(".create-button"); button.disabled = true; button.firstElementChild.textContent = "Creating project…";

@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "title": "Shrinkflation Smoke Test",
+  "visual_concept": "The Hidden Layer",
+  "aspect_ratio": "16:9",
+  "continuity": {
+    "character": "One thoughtful adult shopper with medium-brown skin, short dark hair, an oatmeal overshirt, and natural proportions",
+    "anchor_object_immutable": "One generic warm-yellow cereal carton with a navy side panel, no logo, and the same exterior silhouette in every scene",
+    "anchor_object_states": [
+      "new 450 gram carton on the shelf",
+      "old 500 gram carton beside the new carton",
+      "new carton measured with a unit-price overlay"
+    ],
+    "style": "Premium editorial 2D animation with warm cream surfaces, deep navy hidden layers, clean silhouettes, subtle gouache texture, and soft cinematic light"
+  },
+  "scenes": [
+    {
+      "id": "scene-001",
+      "narrative_role": "familiar-situation",
+      "script_reference": "You reach for the familiar cereal box because the shelf price still says four dollars and ninety-nine cents.",
+      "prompt": "Use case: illustration-story. Asset type: 16:9 editorial animation keyframe. A thoughtful adult shopper in an oatmeal overshirt reaches toward a generic warm-yellow cereal carton with a navy side panel. A cream shelf label clearly shows \"$4.99\". Calm supermarket aisle, clean composition, mature natural proportions, subtle gouache paper texture, soft cinematic light, no real brands.",
+      "image_prompt": "Use case: illustration-story. Asset type: 16:9 editorial animation keyframe. A thoughtful adult shopper in an oatmeal overshirt reaches toward a generic warm-yellow cereal carton with a navy side panel. A cream shelf label clearly shows \"$4.99\". Calm supermarket aisle, clean composition, mature natural proportions, subtle gouache paper texture, soft cinematic light, no real brands.",
+      "video_prompt": "A thoughtful adult shopper slowly reaches toward a generic warm-yellow cereal carton in a calm supermarket aisle. The camera gently pushes toward the unchanged $4.99 shelf label. Mature editorial 2D gouache animation, stable character and package design, no logos.",
+      "negative_prompt": "clutter, unreadable microtext, real logos, copied packaging, childish proportions, stock-vector look, extra fingers, watermark",
+      "duration_weight": 1.0,
+      "clip_duration_seconds": 5
+    },
+    {
+      "id": "scene-002",
+      "narrative_role": "hidden-mechanism",
+      "script_reference": "But the old box held five hundred grams, while the new box contains only four hundred fifty.",
+      "prompt": "Use case: illustration-story. Asset type: 16:9 editorial animation keyframe. Two nearly identical generic cereal cartons stand side by side on a warm cream table. The old carton is labeled \"500 g\" and the new carton is labeled \"450 g\" while both retain the same exterior silhouette. A deep navy cutaway reveals the missing quantity with one restrained red gap. Premium editorial gouache style, clear comparison, no brands.",
+      "image_prompt": "Use case: illustration-story. Asset type: 16:9 editorial animation keyframe. Two nearly identical generic cereal cartons stand side by side on a warm cream table. The old carton is labeled \"500 g\" and the new carton is labeled \"450 g\" while both retain the same exterior silhouette. A deep navy cutaway reveals the missing quantity with one restrained red gap. Premium editorial gouache style, clear comparison, no brands.",
+      "video_prompt": "Two identical cereal cartons slide together for comparison. A cyan measurement bracket contracts from 500 grams to 450 grams while a restrained red gap appears inside the new carton. Premium editorial 2D gouache animation, stable package design, no logos.",
+      "negative_prompt": "clutter, unreadable microtext, real logos, copied packaging, childish proportions, stock-vector look, extra objects, watermark",
+      "duration_weight": 1.0,
+      "clip_duration_seconds": 5
+    },
+    {
+      "id": "scene-003",
+      "narrative_role": "agency-resolution",
+      "script_reference": "Checking the unit price reveals the change, even when the large shelf price never moves.",
+      "prompt": "Use case: illustration-story. Asset type: 16:9 editorial animation keyframe. The same shopper calmly compares the unit-price field beneath the same warm-yellow cereal carton. A clean green measurement line connects quantity to cost while the large \"$4.99\" remains fixed. Warm cream surface and organized deep navy hidden layer visible together, premium mature editorial gouache style, clear agency, no brands.",
+      "image_prompt": "Use case: illustration-story. Asset type: 16:9 editorial animation keyframe. The same shopper calmly compares the unit-price field beneath the same warm-yellow cereal carton. A clean green measurement line connects quantity to cost while the large \"$4.99\" remains fixed. Warm cream surface and organized deep navy hidden layer visible together, premium mature editorial gouache style, clear agency, no brands.",
+      "video_prompt": "The shopper pauses and reads the unit-price field. A green measurement line rises into view and connects the smaller quantity to its true cost while $4.99 remains fixed. Calm premium editorial 2D gouache animation, stable shopper and carton, no logos.",
+      "negative_prompt": "clutter, unreadable microtext, real logos, copied packaging, childish proportions, stock-vector look, warning icons, watermark",
+      "duration_weight": 1.0,
+      "clip_duration_seconds": 5
+    }
+  ]
+}

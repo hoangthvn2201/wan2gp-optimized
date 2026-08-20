@@ -66,6 +66,9 @@ class ProjectRepository:
         speed: float,
         render_quality: str,
         render_fps: int,
+        add_background_music: bool = False,
+        background_music_style: str = "editorial",
+        background_music_volume: float = 0.22,
     ) -> dict[str, Any]:
         plan = validate_scene_plan(plan_value)
         voiceover = validate_voiceover(voiceover_text)
@@ -77,10 +80,22 @@ class ProjectRepository:
             raise ProjectError("Render quality must be draft, standard, or high")
         if render_fps not in {24, 25, 30, 50, 60}:
             raise ProjectError("Render FPS must be 24, 25, 30, 50, or 60")
+        if background_music_style not in {"editorial", "gentle"}:
+            raise ProjectError("Background music style must be editorial or gentle")
+        if not 0 <= background_music_volume <= 1:
+            raise ProjectError("Background music volume must be between 0 and 1")
 
         project_id = f"{_slug(plan['title'])}-{uuid.uuid4().hex[:8]}"
         root = self.project_root(project_id)
-        for relative in ("source", "narration", "scenes", "composition/assets", "renders", "reports"):
+        for relative in (
+            "source",
+            "narration",
+            "scenes",
+            "composition/assets",
+            "background-music",
+            "renders",
+            "reports",
+        ):
             (root / relative).mkdir(parents=True, exist_ok=True)
         (root / "source" / "scene-plan.json").write_text(
             json.dumps(plan, indent=2) + "\n", encoding="utf-8"
@@ -92,7 +107,17 @@ class ProjectRepository:
         created = utc_stamp()
         stages = {
             name: {"status": "pending", "progress": 0, "detail": "Waiting"}
-            for name in ("inputs", "narration", "transcription", "timing", "assets", "composition", "checks", "render")
+            for name in (
+                "inputs",
+                "narration",
+                "transcription",
+                "timing",
+                "assets",
+                "composition",
+                "checks",
+                "render",
+                "music",
+            )
         }
         stages["inputs"] = {"status": "ready", "progress": 100, "detail": "Sources validated"}
         scenes = []
@@ -128,6 +153,9 @@ class ProjectRepository:
                 "speed": speed,
                 "render_quality": render_quality,
                 "render_fps": render_fps,
+                "add_background_music": bool(add_background_music),
+                "background_music_style": background_music_style,
+                "background_music_volume": background_music_volume,
             },
             "source": {
                 "scene_plan": "source/scene-plan.json",
@@ -137,6 +165,7 @@ class ProjectRepository:
             "stages": stages,
             "scenes": scenes,
             "narration": {},
+            "background_music": {},
             "timing": {},
             "final": {},
             "active_operation": None,
@@ -237,4 +266,3 @@ class ProjectRepository:
                     scene["status"] = "interrupted"
                     scene["detail"] = "Server restarted; resume to continue"
             self.save(manifest)
-

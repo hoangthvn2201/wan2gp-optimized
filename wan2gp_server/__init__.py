@@ -22,7 +22,7 @@ This integration uses WanGP by DeepBeepMeep. Use of the WanGP API is
 subject to the WanGP Terms and Conditions.
 """
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 
 def create_app(*args, **kwargs):

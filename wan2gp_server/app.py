@@ -212,6 +212,11 @@ def create_app(config: Optional[ServerConfig] = None) -> FastAPI:
             relative = project.get("narration", {}).get(key)
             if relative:
                 project["narration"][f"{key}_url"] = f"/v1/projects/{project_id}/files/{relative}"
+        if project.get("background_music", {}).get("path"):
+            relative = project["background_music"]["path"]
+            project["background_music"]["url"] = (
+                f"/v1/projects/{project_id}/files/{relative}"
+            )
         if project.get("final", {}).get("path"):
             project["final"]["url"] = f"/v1/projects/{project_id}/files/{project['final']['path']}"
         return project
@@ -239,6 +244,9 @@ def create_app(config: Optional[ServerConfig] = None) -> FastAPI:
         speed: float = Form(1.0),
         render_quality: str = Form("high"),
         render_fps: int = Form(30),
+        add_background_music: bool = Form(False),
+        background_music_style: str = Form("editorial"),
+        background_music_volume: float = Form(0.22),
     ) -> dict:
         allowed = ["image-z"] if config.studio_mode == "image-z" else ["image-ltx", "video-ltx"]
         if studio_mode not in allowed:
@@ -257,6 +265,9 @@ def create_app(config: Optional[ServerConfig] = None) -> FastAPI:
                 speed=speed,
                 render_quality=render_quality,
                 render_fps=render_fps,
+                add_background_music=add_background_music,
+                background_music_style=background_music_style,
+                background_music_volume=background_music_volume,
             )
         except UnicodeDecodeError as exc:
             raise HTTPException(status_code=422, detail="Uploads must be UTF-8 text") from exc

@@ -52,6 +52,9 @@ HyperFrames composition, and the final MP4. Projects live under
 `WAN2GP_SERVER_DATA_DIR/projects`, survive browser refreshes, and can resume
 after a server restart. Regeneration creates a candidate revision; the current
 accepted asset and final cut remain available until that candidate is accepted.
+The production form accepts exact Kokoro speeds from `0.70` through `1.20`
+(including values such as `0.87`) and can optionally generate an editorial or
+gentle stereo ambient score, mixed under narration at a configurable volume.
 
 Project endpoints begin at `POST /v1/projects`; see `/docs` for the full upload,
 status, regeneration, acceptance, render, event, and artifact API.
@@ -101,7 +104,7 @@ client.download(job, "bicycle.mp4")
 ### `GET /health`
 
 ```json
-{"status": "ok", "version": "0.2.0", "wan2gp_root": "/path/to/Wan2GP",
+{"status": "ok", "version": "0.3.0", "wan2gp_root": "/path/to/Wan2GP",
  "runtime_loaded": true, "active_job_id": null, "queued_jobs": 0}
 ```
 
